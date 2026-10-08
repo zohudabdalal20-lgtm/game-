@@ -1,0 +1,304 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تحدي جمع البرتقال - ولد ضد بنت</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: linear-gradient(135deg, #e0f7fa, #fff3e0);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            text-align: center;
+        }
+
+        .game-container {
+            background: white;
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 600px;
+        }
+
+        h1 {
+            color: #e65100;
+            margin-bottom: 15px;
+        }
+
+        .scoreboard {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 15px;
+        }
+
+        .player-card {
+            padding: 10px 20px;
+            border-radius: 12px;
+            background: #f5f5f5;
+            border: 2px solid transparent;
+            transition: 0.3s;
+        }
+
+        .player-card.active {
+            border-color: #ff9800;
+            transform: scale(1.05);
+            background: #fff8e1;
+        }
+
+        .turn-indicator {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #424242;
+        }
+
+        #game-board {
+            width: 100%;
+            height: 350px;
+            background: #e8f5e9;
+            border: 3px solid #81c784;
+            border-radius: 15px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .player {
+            font-size: 30px;
+            position: absolute;
+            transition: left 0.1s linear, top 0.1s linear;
+            width: 40px;
+            height: 40px;
+            line-height: 40px;
+        }
+
+        .item {
+            font-size: 28px;
+            position: absolute;
+            width: 35px;
+            height: 35px;
+            line-height: 35px;
+        }
+
+        .instructions {
+            margin-top: 15px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        /* نافذة الفوز ورش الورود */
+        .modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            z-index: 101;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-content button {
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        #rose-container {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+        }
+
+        .rose {
+            position: absolute;
+            font-size: 24px;
+            animation: fall linear infinite;
+        }
+
+        @keyframes fall {
+            0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <h1>🍊 تحدي جمع البرتقال 🍊</h1>
+        
+        <div class="scoreboard">
+            <div class="player-card" id="boy-card">
+                <h2>👦 الولد</h2>
+                <p>النقاط: <span id="boy-score">0</span> / 5</p>
+            </div>
+            <div class="player-card" id="girl-card">
+                <h2>👧 البنت</h2>
+                <p>النقاط: <span id="girl-score">0</span> / 5</p>
+            </div>
+        </div>
+
+        <div class="turn-indicator" id="turn-text">الدور الحالي: <span>الولد</span></div>
+
+        <div id="game-board">
+            <div id="player" class="player boy">👦</div>
+            <div id="orange" class="item orange">🍊</div>
+            <div id="obstacle" class="item obstacle">💣</div>
+        </div>
+
+        <p class="instructions">استخدم <b>أسهم لوحة المفاتيح</b> للتحرك. اجمع 5 برتقالات وتجنب القنابل!</p>
+    </div>
+
+    <!-- نافذة إعلان الفائز ورش الورود -->
+    <div id="winner-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2 id="winner-name">🎉 مبروك! 🎉</h2>
+            <p>جمع 5 برتقالات وفاز بالتحدي!</p>
+            <button onclick="resetGame()">إعادة اللعب 🔄</button>
+        </div>
+        <div id="rose-container"></div>
+    </div>
+
+    <script>
+        let currentTurn = 'boy'; // 'boy' أو 'girl'
+        let scores = { boy: 0, girl: 0 };
+
+        const playerEl = document.getElementById('player');
+        const orangeEl = document.getElementById('orange');
+        const obstacleEl = document.getElementById('obstacle');
+        const board = document.getElementById('game-board');
+
+        let playerPos = { x: 20, y: 20 };
+        let orangePos = { x: 200, y: 150 };
+        let obstaclePos = { x: 300, y: 200 };
+        const step = 20;
+
+        function getRandomPos() {
+            const maxX = board.clientWidth - 40;
+            const maxY = board.clientHeight - 40;
+            return {
+                x: Math.floor(Math.random() * (maxX / 20)) * 20,
+                y: Math.floor(Math.random() * (maxY / 20)) * 20
+            };
+        }
+
+        function updatePositions() {
+            playerEl.style.left = playerPos.x + 'px';
+            playerEl.style.top = playerPos.y + 'px';
+            
+            orangeEl.style.left = orangePos.x + 'px';
+            orangeEl.style.top = orangePos.y + 'px';
+
+            obstacleEl.style.left = obstaclePos.x + 'px';
+            obstacleEl.style.top = obstaclePos.y + 'px';
+        }
+
+        function switchTurn() {
+            currentTurn = currentTurn === 'boy' ? 'girl' : 'boy';
+            playerEl.textContent = currentTurn === 'boy' ? '👦' : '👧';
+            
+            document.getElementById('turn-text').querySelector('span').textContent = 
+                currentTurn === 'boy' ? 'الولد' : 'البنت';
+
+            document.getElementById('boy-card').classList.toggle('active', currentTurn === 'boy');
+            document.getElementById('girl-card').classList.toggle('active', currentTurn === 'girl');
+
+            playerPos = { x: 20, y: 20 };
+            obstaclePos = getRandomPos();
+            updatePositions();
+        }
+
+        function checkCollision(p1, p2) {
+            return Math.abs(p1.x - p2.x) < 30 && Math.abs(p1.y - p2.y) < 30;
+        }
+
+        document.addEventListener('keydown', (e) => {
+            const maxX = board.clientWidth - 40;
+            const maxY = board.clientHeight - 40;
+
+            if (e.key === 'ArrowUp' && playerPos.y > 0) playerPos.y -= step;
+            if (e.key === 'ArrowDown' && playerPos.y < maxY) playerPos.y += step;
+            if (e.key === 'ArrowLeft' && playerPos.x > 0) playerPos.x -= step;
+            if (e.key === 'ArrowRight' && playerPos.x < maxX) playerPos.x += step;
+
+            // الاصطدام بالبرتقال (جمع النقاط)
+            if (checkCollision(playerPos, orangePos)) {
+                scores[currentTurn]++;
+                document.getElementById(`${currentTurn}-score`).textContent = scores[currentTurn];
+                orangePos = getRandomPos();
+
+                if (scores[currentTurn] >= 5) {
+                    showWinner(currentTurn === 'boy' ? 'الولد 👦' : 'البنت 👧');
+                }
+            }
+
+            // الاصطدام بالقنبلة (خسارة الدور والتبديل)
+            if (checkCollision(playerPos, obstaclePos)) {
+                alert('💥 اصطدمت بالقنبلة! خسرت الدور وسينتقل اللعب للطرف الآخر.');
+                switchTurn();
+            }
+
+            updatePositions();
+        });
+
+        function showWinner(name) {
+            document.getElementById('winner-name').textContent = `🎉 مبروك للفائز: ${name}! 🎉`;
+            document.getElementById('winner-modal').classList.remove('hidden');
+            dropRoses();
+        }
+
+        function dropRoses() {
+            const container = document.getElementById('rose-container');
+            container.innerHTML = '';
+            const roseIcons = ['🌹', '🌸', '🌺', '🌷'];
+
+            for (let i = 0; i < 40; i++) {
+                const rose = document.createElement('div');
+                rose.className = 'rose';
+                rose.textContent = roseIcons[Math.floor(Math.random() * roseIcons.length)];
+                rose.style.left = Math.random() * 100 + 'vw';
+                rose.style.animationDuration = (Math.random() * 3 + 2) + 's';
+                container.appendChild(rose);
+            }
+        }
+
+        function resetGame() {
+            scores = { boy: 0, girl: 0 };
+            document.getElementById('boy-score').textContent = '0';
+            document.getElementById('girl-score').textContent = '0';
+            document.getElementById('winner-modal').classList.add('hidden');
+            currentTurn = 'girl'; // تبديل لتنشيط switchTurn لتبدأ بالولد
+            switchTurn();
+        }
+
+        // بدء اللعبة
+        switchTurn();
+    </script>
+</body>
+</html>
